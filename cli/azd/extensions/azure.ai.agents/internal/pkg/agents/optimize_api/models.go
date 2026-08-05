@@ -48,11 +48,16 @@ func IsTerminal(status string) bool {
 
 // OptimizeRequest is the top-level payload sent to POST /optimize.
 type OptimizeRequest struct {
-	Agent             AgentIdentifier `json:"agent"`
-	TrainDataset      *Dataset        `json:"train_dataset,omitempty"`
-	ValidationDataset *Dataset        `json:"validation_dataset,omitempty"`
-	Evaluators        []EvaluatorRef  `json:"evaluators,omitempty"`
-	Options           OptimizeOptions `json:"options"`
+	Agent                  AgentIdentifier            `json:"agent"`
+	TrainDataset           *Dataset                   `json:"train_dataset,omitempty"`
+	ValidationDataset      *Dataset                   `json:"validation_dataset,omitempty"`
+	Evaluators             []EvaluatorRef             `json:"evaluators,omitempty"`
+	Options                OptimizeOptions            `json:"options"`
+	// EvaluatorInitParamsMap maps evaluator name to its initialization_parameters.
+	// Used for evaluators that require configuration (e.g. regex_match's patterns).
+	// The C# API stores this in Cosmos and the Python optimizer reads it via
+	// cosmos_loader._resolve_evaluator_init_params_map.
+	EvaluatorInitParamsMap map[string]map[string]any  `json:"evaluatorInitParamsMap,omitempty"`
 }
 
 // AgentIdentifier references the agent to optimize by name and optional version.
@@ -116,6 +121,9 @@ type OptimizeOptions struct {
 	// MaxStalls is the maximum number of consecutive non-improving iterations
 	// before the optimizer stops early. Omitted when nil (service default applies).
 	MaxStalls *int `json:"max_stalls,omitempty"`
+	// MaxConcurrentAgentRuns is the maximum number of agent invocations the
+	// evaluation service executes concurrently. Omitted when nil (service default applies).
+	MaxConcurrentAgentRuns *int `json:"max_concurrent_agent_runs,omitempty"`
 }
 
 // --- Response models ---

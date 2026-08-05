@@ -104,6 +104,12 @@ func (c *OptimizeConfig) Validate() error {
 			*c.Options.MaxStalls)
 	}
 
+	if c.Options.MaxConcurrentAgentRuns != nil && *c.Options.MaxConcurrentAgentRuns < 1 {
+		return fmt.Errorf(
+			"options.max_concurrent_agent_runs must be >= 1 (got %d): set 'max_concurrent_agent_runs' under 'options:' in your config file",
+			*c.Options.MaxConcurrentAgentRuns)
+	}
+
 	return nil
 }
 
@@ -131,12 +137,22 @@ func (c *OptimizeConfig) ToRequest() (*optimize_api.OptimizeRequest, []string, e
 		},
 		Evaluators: evaluatorRefs(c.Evaluators),
 		Options: optimize_api.OptimizeOptions{
-			EvalModel:         c.Options.EvalModel,
-			MaxCandidates:     c.Options.MaxCandidates,
-			OptimizationModel: c.Options.OptimizationModel,
-			EvaluationLevel:   c.Options.EvaluationLevel,
-			MaxStalls:         c.Options.MaxStalls,
+			EvalModel:              c.Options.EvalModel,
+			MaxCandidates:          c.Options.MaxCandidates,
+			OptimizationModel:      c.Options.OptimizationModel,
+			EvaluationLevel:        c.Options.EvaluationLevel,
+			MaxStalls:              c.Options.MaxStalls,
+			MaxConcurrentAgentRuns: c.Options.MaxConcurrentAgentRuns,
 		},
+	}
+
+	// Collect per-evaluator initialization_parameters into EvaluatorInitParamsMap.
+	// The C# API stores this in Cosmos and the Python optimizer reads it to
+	// supply required init params (e.g. regex_match's ``patterns``) when building
+	// testing criteria.
+	evalInitParams := evaluatorInitParamsMap(c.Evaluators)
+	if len(evalInitParams) > 0 {
+		req.EvaluatorInitParamsMap = evalInitParams
 	}
 
 	// Map optimization_config from YAML to API format.
@@ -250,6 +266,22 @@ func evaluatorRefs(list opt_eval.EvaluatorList) []optimize_api.EvaluatorRef {
 		refs = append(refs, optimize_api.EvaluatorRef{Name: e.Name, Version: e.Version})
 	}
 	return refs
+}
+
+// evaluatorInitParamsMap builds the EvaluatorInitParamsMap from evaluators
+// that have initialization_parameters set. Returns nil when no evaluator
+// has initialization_parameters.
+func evaluatorInitParamsMap(list opt_eval.EvaluatorList) map[string]map[string]any {
+	var result map[string]map[string]any
+	for _, e := range list {
+		if len(e.InitializationParameters) > 0 {
+			if result == nil {
+				result = make(map[string]map[string]any)
+			}
+			result[e.Name] = e.InitializationParameters
+		}
+	}
+	return result
 }
 
 // mergeEvaluators appends add to base, skipping entries whose name already

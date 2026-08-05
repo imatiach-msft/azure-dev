@@ -90,10 +90,17 @@ func (c *Config) RemoteDatasetReference() *DatasetRef {
 
 // EvaluatorRef describes an evaluator. It can be a simple string name or a
 // structured entry with name, version, and local_uri.
+// EvaluatorRef describes an evaluator. It can be a simple string name or a
+// structured entry with name, version, local_uri, and initialization_parameters.
 type EvaluatorRef struct {
-	Name     string `yaml:"name" json:"name"`
-	Version  string `yaml:"version,omitempty" json:"version,omitempty"`
-	LocalURI string `yaml:"local_uri,omitempty" json:"local_uri,omitempty"`
+	Name     string         `yaml:"name" json:"name"`
+	Version  string         `yaml:"version,omitempty" json:"version,omitempty"`
+	LocalURI string         `yaml:"local_uri,omitempty" json:"local_uri,omitempty"`
+	// InitializationParameters holds evaluator-specific configuration parameters,
+	// such as regex_match's ``patterns``. These are collected into
+	// EvaluatorInitParamsMap in the API request and are not serialized per-evaluator
+	// in the evaluators array (hence json:"-").
+	InitializationParameters map[string]any `yaml:"initialization_parameters,omitempty" json:"-"`
 }
 
 // EvaluatorList is a list of evaluators that supports mixed YAML:
@@ -484,6 +491,12 @@ type Options struct {
 	// (iterations that do not improve over the current best score) before
 	// the optimizer stops early. When nil the service default is used.
 	MaxStalls *int `yaml:"max_stalls,omitempty"`
+	// MaxConcurrentAgentRuns is the maximum number of agent invocations the
+	// evaluation service executes concurrently for each evaluation run.
+	// Values greater than 1 parallelise row evaluation, which significantly
+	// reduces wall-clock time for large datasets. When nil the service
+	// default (sequential) is used.
+	MaxConcurrentAgentRuns *int `yaml:"max_concurrent_agent_runs,omitempty"`
 }
 
 // Read reads a YAML config file (eval or optimize format).

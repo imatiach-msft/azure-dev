@@ -366,6 +366,38 @@ max_stalls: 3
 	assert.Equal(t, 3, *opts.MaxStalls)
 }
 
+// TestOptions_MaxConcurrentAgentRuns verifies the max_concurrent_agent_runs key
+// populates MaxConcurrentAgentRuns.
+func TestOptions_MaxConcurrentAgentRuns(t *testing.T) {
+	t.Parallel()
+
+	input := `
+eval_model: gpt-4.1
+optimization_model: gpt-5
+max_concurrent_agent_runs: 8
+`
+	var opts Options
+	require.NoError(t, yaml.Unmarshal([]byte(input), &opts))
+
+	require.NotNil(t, opts.MaxConcurrentAgentRuns)
+	assert.Equal(t, 8, *opts.MaxConcurrentAgentRuns)
+}
+
+// TestOptions_MaxConcurrentAgentRunsOmitted verifies MaxConcurrentAgentRuns is nil
+// when the key is absent.
+func TestOptions_MaxConcurrentAgentRunsOmitted(t *testing.T) {
+	t.Parallel()
+
+	input := `
+eval_model: gpt-4.1
+optimization_model: gpt-5
+`
+	var opts Options
+	require.NoError(t, yaml.Unmarshal([]byte(input), &opts))
+
+	assert.Nil(t, opts.MaxConcurrentAgentRuns)
+}
+
 func TestOptions_OptimizationConfig_NativeYAML(t *testing.T) {
 	t.Parallel()
 
@@ -415,3 +447,30 @@ optimization_config:
 	// model should be the JSON string, not double-quoted.
 	assert.JSONEq(t, `"gpt-4o"`, string(opts.OptimizationConfig["model"]))
 }
+
+// TestOptions_EvaluatorInitializationParameters verifies that
+// initialization_parameters under an evaluator entry is parsed correctly.
+func TestOptions_EvaluatorInitializationParameters(t *testing.T) {
+	t.Parallel()
+
+	input := `
+evaluators:
+  - name: builtin.regex_match
+    version: "4"
+    initialization_parameters:
+      patterns:
+        - '(?i)Answer:\s*{{ground_truth}}'
+`
+	var cfg Config
+	require.NoError(t, yaml.Unmarshal([]byte(input), &cfg))
+
+	require.Len(t, cfg.Evaluators, 1)
+	ref := cfg.Evaluators[0]
+	assert.Equal(t, "builtin.regex_match", ref.Name)
+	assert.Equal(t, "4", ref.Version)
+	require.NotNil(t, ref.InitializationParameters)
+	patterns, ok := ref.InitializationParameters["patterns"]
+	require.True(t, ok)
+	assert.NotEmpty(t, patterns)
+}
+
